@@ -1,0 +1,19 @@
+@(loginForm: Form[LoginData], msg: String)(implicit request: MessagesRequestHeader)
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Sign in</title>
+    </head>
+    <body>
+        <div>@msg</div>
+        <h1>Sign in</h1>
+        @helper.form(action = routes.AccountController.loginPost()) {
+            @helper.CSRF.formField
+            @helper.inputText(loginForm("name"))
+            @helper.inputPassword(loginForm("password"))
+            <button type="submit">Login</button>
+        }
+    </body>
+</html>
