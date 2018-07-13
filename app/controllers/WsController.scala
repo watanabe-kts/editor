@@ -12,6 +12,13 @@ import play.api.mvc._
 import scala.collection.mutable
 import scala.concurrent.duration._
 
+/**
+  * Web Socket
+  *
+  * @param system
+  * @param materializer
+  * @param cc
+  */
 @Singleton
 class WsController @Inject()(implicit system: ActorSystem, materializer: Materializer, cc: ControllerComponents) extends AbstractController(cc) {
   import GraphDSL.Implicits._
@@ -37,16 +44,16 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
         }
       }
       case Some("update") => {
-
+        // Todo
       }
       case Some("delete") => {
-
+        // Todo
       }
       case Some(_) => {
-
+        // Todo
       }
       case None => {
-
+        // Todo
       }
     }
     v

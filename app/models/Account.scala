@@ -7,6 +7,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import scala.collection.mutable
 import scala.util.{Random, Try}
 
+/**
+  * アカウント作成、認証
+  * セッション管理
+  */
 object Account {
   val bcrypt = new BCryptPasswordEncoder()
   def toDigest(pw: String) = bcrypt.encode(pw)
@@ -83,7 +87,5 @@ object Account {
 
 case class Session(token: String, account: Account)
 
-case class Account (name: String, password: String) {
-
-}
+case class Account (name: String, password: String)
 

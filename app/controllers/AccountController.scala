@@ -13,6 +13,12 @@ import play.api.db._
 case class LoginData(name: String, password: String)
 case class SignupData(name: String, password: String)
 
+/**
+  * サインイン、ログイン、ログアウト
+  * @param db
+  * @param messagesAction
+  * @param cc
+  */
 @Singleton
 class AccountController @Inject()(implicit db: Database, messagesAction: MessagesActionBuilder, cc: ControllerComponents) extends AbstractController(cc) {
 
