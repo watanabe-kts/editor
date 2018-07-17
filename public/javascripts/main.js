@@ -45,6 +45,14 @@ const deleteLine = (id) => {
     return false
 }
 
+
+const sendGetAll = () => {
+    socket.send(JSON.stringify({
+        action: "get-all",
+        userToken
+    }))
+}
+
 const sendInsertLine = (prevId, id, text) => {
     socket.send(JSON.stringify({
         action: 'insert',
@@ -80,6 +88,8 @@ let keepAliveID
 
 socket.addEventListener('open', e => {
     console.log('Socket opened', e)
+
+    sendGetAll()
 
     keepAliveID = setInterval(sendKeepAlive, 30000)
 })

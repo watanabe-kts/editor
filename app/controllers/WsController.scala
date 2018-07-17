@@ -45,7 +45,7 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
   sealed trait RoomSingleAction extends RoomAction
   case class GetAllAction(userToken: String) extends RoomSingleAction
 
-  def roomProcess_(v: JsValue): WsAction = {
+  def roomProcess(v: JsValue): WsAction = {
     val action = (v \ "action").asOpt[String]
     val userToken = (v \ "userToken").asOpt[String].get // fixme
     val res: WsAction = action match {
@@ -87,6 +87,9 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
           FailAction(userToken, "Error")
         }
       }
+      case Some("get-all") => {
+        GetAllAction(userToken)
+      }
       case Some(_) => {
         FailAction(userToken, "Error")
       }
@@ -106,65 +109,6 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
   def roomBroadcastFilter(a: WsAction): Boolean = a match {
     case _: RoomBroadcastAction => true
     case _ => false
-  }
-
-  def roomProcess(v: JsValue): JsValue = {
-    val action = (v \ "action").asOpt[String]
-    val res = action match {
-      case Some("insert") => {
-        val id = (v \ "id").asOpt[Long].getOrElse(-1l)
-        val prevId = (v \ "prevId").asOpt[Long].getOrElse(-1l)
-        val text = (v \ "text").asOpt[String].getOrElse("")
-        val index = linesMock.indexWhere(line => line.id == prevId)
-        val newLine = Line(id, text)
-        if (index >= 0) {
-          if (index < linesMock.size) {
-            linesMock.insert(index + 1, newLine)
-          } else {
-            linesMock += newLine
-          }
-          v
-        } else {
-          // error
-          v
-        }
-      }
-      case Some("update") => {
-        // Todo
-        val id = (v \ "id").asOpt[Long].getOrElse(-1l)
-        val text = (v \ "text").asOpt[String].getOrElse("")
-        val index = linesMock.indexWhere(line => line.id == id)
-        if (index >= 0) {
-          linesMock(index) = Line(id, text)
-          v
-        } else {
-          // error
-          v
-        }
-      }
-      case Some("delete") => {
-        // Todo
-        val id = (v \ "id").asOpt[Long].getOrElse(-1l)
-        val index = linesMock.indexWhere(line => line.id == id)
-        if (index >= 0) {
-          linesMock.remove(index)
-          v
-        } else {
-          // error
-          v
-        }
-      }
-      case Some(_) => {
-        // Todo
-        v
-      }
-      case None => {
-        // Todo
-        v
-      }
-    }
-    Logger.debug(linesMock.mkString(", "))
-    res
   }
 
   def roomBroadcastResponse(action: WsAction): JsValue = action match {
@@ -195,7 +139,6 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
     )
   }
 
-
   val bus = {
     val (busSink, busSource) =
       MergeHub.source[JsValue]
@@ -220,38 +163,10 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
       val i = b.add(inFlow)
       val o = b.add(outFlow)
 
-      val bcast = b.add(Broadcast[JsValue](2))
-      val merge = b.add(Merge[JsValue](2))
-
-      val preProc = Flow[JsValue].map(roomProcess)
-
-      val roomBus = b.add(bus)
-
-      val core = b.add(Flow[JsValue].filter(_ => false))
-
-      i ~> preProc ~> bcast ~> roomBus ~> merge ~> o
-                      bcast ~> core    ~> merge
-
-      FlowShape(i.in, o.out)
-    }
-    Flow.fromGraph(graph)
-  }
-
-  def ws_new: WebSocket = WebSocket.accept[JsValue, JsValue] { request =>
-    Logger.debug("ws: connected")
-
-    val inFlow  = ActorFlow.actorRef(out => RequestActor.props(out))
-
-    val outFlow = ActorFlow.actorRef(out => ResponseActor.props(out))
-
-    val graph = GraphDSL.create() { implicit b =>
-      val i = b.add(inFlow)
-      val o = b.add(outFlow)
-
       val bcast = b.add(Broadcast[WsAction](2))
       val merge = b.add(Merge[JsValue](2))
 
-      val preProc = b.add(Flow[JsValue].map(roomProcess_))
+      val preProc = b.add(Flow[JsValue].map(roomProcess))
       val roomRes = b.add(Flow[WsAction].filter(roomBroadcastFilter).map(roomBroadcastResponse))
 
       val roomBus = b.add(bus)
