@@ -27,7 +27,7 @@ const insertLine = (prevId, id, text) => {
 
 const updateLine = (id, text) => {
     const index = idToIndex(id)
-    if (text !== lines[index].text) {
+    if (index >= 0 && text !== lines[index].text) {
         lines.splice(index, 1, {
             id, text
         })
@@ -38,7 +38,11 @@ const updateLine = (id, text) => {
 
 const deleteLine = (id) => {
     const index = idToIndex(id)
-    lines.splice(index, 1)
+    if (index >= 0) {
+        lines.splice(index, 1)
+        return true
+    }
+    return false
 }
 
 const sendInsertLine = (prevId, id, text) => {
@@ -65,12 +69,24 @@ const sendDeleteLine = (id) => {
     }))
 }
 
+const sendKeepAlive = () => {
+    socket.send(JSON.stringify({
+        action: 'keep-alive'
+    }))
+}
+
+let keepAliveID
+
 socket.addEventListener('open', e => {
     console.log('Socket opened', e)
+
+    keepAliveID = setInterval(sendKeepAlive, 30000)
 })
 
 socket.addEventListener('close', e => {
     console.log('Socket closed', e)
+
+    clearInterval(keepAliveID)
 })
 
 socket.addEventListener('message', e => {
@@ -123,13 +139,19 @@ const app = new Vue({
         },
 
         clickLine(e) {
-            console.log(e)
+            const input = document.querySelector('#line-input')
+            if (input !== null) {
+                const id = parseInt(input.dataset.id)
+                const text = input.value
+                const updated = updateLine(id, text)
+                if (updated) {
+                    sendUpdateLine(id, text)
+                }
+            }
             this.editingId = parseInt(e.currentTarget.dataset.id)
-            console.log(e.target.dataset.id)
         },
 
         enterLine(e) {
-            console.log(e)
             const id = parseInt(e.target.dataset.id)
             const text = e.target.value
             updateLine(id, text)

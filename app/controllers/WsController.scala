@@ -1,7 +1,7 @@
 package controllers
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.stream.scaladsl.{BroadcastHub, Flow, GraphDSL, Keep, MergeHub, Sink}
+import akka.stream.scaladsl.{Broadcast, BroadcastHub, Flow, GraphDSL, Keep, Merge, MergeHub, Sink}
 import akka.stream.{FlowShape, KillSwitches, Materializer}
 import javax.inject._
 import play.api._
@@ -30,7 +30,7 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
     Line(0, "")
   }
 
-  def process(v: JsValue): JsValue = {
+  def roomProcess(v: JsValue): JsValue = {
     val action = (v \ "action").asOpt[String]
     action match {
       case Some("insert") => {
@@ -44,21 +44,28 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
         } else {
           linesMock += newLine
         }
+        v
       }
       case Some("update") => {
         // Todo
+        val id = (v \ "id").asOpt[Long].getOrElse(-1l)
+        val text = (v \ "text").asOpt[String].getOrElse("")
+
+        v
       }
       case Some("delete") => {
         // Todo
+        v
       }
       case Some(_) => {
         // Todo
+        v
       }
       case None => {
         // Todo
+        v
       }
     }
-    v
   }
 
   val bus = {
@@ -78,29 +85,28 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
     Logger.debug("ws: connected")
 
     val inFlow  = ActorFlow.actorRef(out => RequestActor.props(out))
-      .map(process)
+      .map(roomProcess)
 
     val outFlow = Flow[JsValue].filter(v => true)
       .via(ActorFlow.actorRef(out => ResponseActor.props(out)))
 
-    /*
-    val inGraph = GraphDSL.create() { implicit b =>
+    val graph = GraphDSL.create() { implicit b =>
       val i = b.add(inFlow)
       val o = b.add(outFlow)
 
-      val f = Flow[JsValue]
-          .map(process)
+      val bcast = b.add(Broadcast[JsValue](2))
+      val merge = b.add(Merge[JsValue](2))
 
-      i ~> f
+      val roomBus = b.add(bus)
 
-      FlowShape(i.in, f.out)
+      val core = b.add(Flow[JsValue].filter(_ => false))
+
+      i ~> bcast ~> roomBus ~> merge ~> o
+           bcast ~> core    ~> merge
+
+      FlowShape(i.in, o.out)
     }
-    Flow.fromGraph(inGraph)
-    */
-
-    inFlow.viaMat(bus)(Keep.right)
-      .map({x => Logger.debug("bcast: " + x); x})
-      .viaMat(outFlow)(Keep.right)
+    Flow.fromGraph(graph)
   }
 
   object RequestActor {
