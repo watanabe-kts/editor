@@ -7,7 +7,7 @@ const genRandomId = () => {
 }
 
 // stub
-const userToken = genRandomId()
+const userToken = `${genRandomId()}`
 
 const lines = [{
     id: 0,
@@ -71,7 +71,8 @@ const sendDeleteLine = (id) => {
 
 const sendKeepAlive = () => {
     socket.send(JSON.stringify({
-        action: 'keep-alive'
+        action: 'keep-alive',
+        userToken
     }))
 }
 
@@ -116,7 +117,7 @@ socket.addEventListener('message', e => {
 
 
 const app = new Vue({
-    el: '#editor',
+    el: '#app',
     data: {
         lines,
         editingId: -1,
