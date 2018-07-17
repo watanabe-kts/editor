@@ -5,7 +5,7 @@ import akka.stream.scaladsl.{Broadcast, BroadcastHub, Flow, GraphDSL, Keep, Merg
 import akka.stream.{FlowShape, KillSwitches, Materializer}
 import javax.inject._
 import play.api._
-import play.api.libs.json.{JsObject, JsValue, Json}
+import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
 import play.api.libs.streams.ActorFlow
 import play.api.mvc._
 
@@ -25,6 +25,7 @@ import scala.concurrent.duration._
 class WsController @Inject()(implicit system: ActorSystem, materializer: Materializer, cc: ControllerComponents) extends AbstractController(cc) {
   import GraphDSL.Implicits._
 
+  var titleMock = "No_Title"
   case class Line(id: Long, text: String)
   val linesMock = mutable.ListBuffer {
     Line(0, "")
@@ -135,7 +136,12 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
   def roomSingleResponse(action: WsAction): JsValue = action match {
     case GetAllAction(userToken: String) => Json.obj(
       "action" -> "get-all",
-      "userToken" -> userToken
+      "userToken" -> userToken,
+      "title" -> titleMock,
+      "lines" -> JsArray(linesMock.map(l => Json.obj(
+        "id" -> l.id,
+        "text" -> l.text
+      )))
     )
   }
 

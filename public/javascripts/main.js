@@ -17,6 +17,17 @@ const lines = [{
 const idToIndex = (id) =>
     lines.findIndex(line => id === line.id)
 
+const initLines = (newLines) => {
+    console.log(newLines)
+    lines.splice(0, lines.length)
+    for (let l of newLines) {
+        lines.push({
+            id: l.id,
+            text: l.text
+        })
+    }
+}
+
 const insertLine = (prevId, id, text) => {
     const prevIndex = idToIndex(prevId)
     lines.splice(prevIndex + 1, 0, {
@@ -89,7 +100,7 @@ let keepAliveID
 socket.addEventListener('open', e => {
     console.log('Socket opened', e)
 
-    sendGetAll()
+    setTimeout(sendGetAll, 10)
 
     keepAliveID = setInterval(sendKeepAlive, 30000)
 })
@@ -105,7 +116,15 @@ socket.addEventListener('message', e => {
 
     const data = JSON.parse(e.data)
 
-    if (data.userToken === undefined || data.userToken === userToken) return
+    if (data.userToken === undefined) return
+
+    switch (data.action) {
+        case 'get-all':
+            initLines(data.lines)
+            break
+    }
+
+    if (data.userToken === userToken) return
 
     switch (data.action) {
         case 'insert':
