@@ -2,8 +2,9 @@ $primary-color: #6ec2b1;
 $secondly-color: #ff545e;
 
 $primary-color-light: lighten($primary-color, 20%);
+$primary-color-dark: darken($primary-color, 20%);
 
-$text-color: #212529;
+$text-color: #233332;
 $text-color-white: #fff;
 
 html {
@@ -22,26 +23,32 @@ body {
   height: calc(100vh - 10rem);
 }
 
+#file-name {
+  font-weight: bold;
+  font-size: 2em;
+}
+
 #editor {
   width: 80%;
   height: 80%;
 
-  border: solid 4px $primary-color;
+  border: solid 3px $primary-color-dark;
+  border-radius: 5px;
   padding: 1.5rem;
 
   background-color: lighten($primary-color, 40%);
 
   overflow-y: auto;
 
-  box-shadow: 4px 4px 4px 2px rgba(0,0,0,0.4);
+  box-shadow: 2px 2px 2px 1px rgba(0,0,0,0.4);
 }
 
 .line {
-  line-height: 1.5em;
+  line-height: 1.7em;
 }
 
 .line:hover {
-  background-color: rgba($primary-color, 0.2);
+  background-color: rgba($primary-color, 0.15);
 }
 
 input:focus {
@@ -51,7 +58,7 @@ input:focus {
 .line-index {
   min-width: 4em;
 
-  font-size: 0.85em;
+  font-size: 0.8em;
   color: rgba(0,0,0,0.5);
 }
 
@@ -60,12 +67,12 @@ input:focus {
 }
 
 #line-input {
-  width: 80%;
+  width: calc(100% - 4em);
 
-  border: solid $primary-color;
+  border: solid $primary-color-dark;
   border-width: 0 0 3px;
   font-size: 1em;
-  background-color: rgba($primary-color, 0.4);
+  background-color: rgba($primary-color, 0.3);
 }
 
 .transition-line-input-enter {
@@ -79,7 +86,7 @@ input:focus {
 header {
   padding: 0.5rem;
 
-  background-color: #000;
+  background-color: $text-color;
 
   color: $primary-color-light;
 

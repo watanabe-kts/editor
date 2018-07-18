@@ -85,7 +85,7 @@ class AccountController @Inject()(implicit db: Database, messagesAction: Message
         val res = Account.create(newAccount)
         res.fold(
           msg => BadRequest(views.html.signup(signupForm, msg)),
-          _ => Redirect(routes.HomeController.index()).flashing("success" -> "Sign up succeed!")
+          _ => Redirect(routes.AccountController.loginPage()).flashing("success" -> "Sign up succeed!")
         )
       }
     )

@@ -8,12 +8,15 @@
     </head>
     <body>
         <div>@msg</div>
-        <h1>Sign in</h1>
+        <h1>Log in</h1>
         @helper.form(action = routes.AccountController.loginPost()) {
             @helper.CSRF.formField
             @helper.inputText(loginForm("name"))
             @helper.inputPassword(loginForm("password"))
             <button type="submit">Login</button>
         }
+        <div>
+            <a href="@routes.AccountController.signupPage()">Sign up</a>
+        </div>
     </body>
 </html>
