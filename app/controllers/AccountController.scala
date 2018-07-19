@@ -21,18 +21,22 @@ case class SignupData(name: String, password: String)
   */
 @Singleton
 class AccountController @Inject()(implicit db: Database, messagesAction: MessagesActionBuilder, cc: ControllerComponents) extends AbstractController(cc) {
+  val NAME_LENGTH_MIN = 4
+  val NAME_LENGTH_MAX = 30
+  val PASSWORD_LENGTH_MIN = 4
+  val PASSWORD_LENGTH_MAX = 30
 
   val loginForm = Form(
     mapping(
-      "name" -> nonEmptyText,
-      "password" -> nonEmptyText
+      "name" -> nonEmptyText(NAME_LENGTH_MIN, NAME_LENGTH_MAX),
+      "password" -> nonEmptyText(PASSWORD_LENGTH_MIN, PASSWORD_LENGTH_MAX)
     )(LoginData.apply)(LoginData.unapply)
   )
 
   val signupForm = Form(
     mapping(
-      "name" -> nonEmptyText,
-      "password" -> nonEmptyText
+      "name" -> nonEmptyText(NAME_LENGTH_MIN, NAME_LENGTH_MAX),
+      "password" -> nonEmptyText(PASSWORD_LENGTH_MIN, PASSWORD_LENGTH_MAX)
     )(SignupData.apply)(SignupData.unapply)
   )
 

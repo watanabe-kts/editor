@@ -87,5 +87,5 @@ object Account {
 
 case class Session(token: String, account: Account)
 
-case class Account (name: String, password: String)
+case class Account(name: String, password: String)
 

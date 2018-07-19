@@ -25,6 +25,8 @@ import scala.concurrent.duration._
 class WsController @Inject()(implicit system: ActorSystem, materializer: Materializer, cc: ControllerComponents) extends AbstractController(cc) {
   import GraphDSL.Implicits._
 
+  val MAX_LINE_LENGTH = 100
+
   var titleMock = "No_Title"
   case class Line(id: Long, text: String)
   val linesMock = mutable.ListBuffer {
@@ -45,6 +47,7 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
 
   sealed trait RoomSingleAction extends RoomAction
   case class GetAllAction(userToken: String) extends RoomSingleAction
+  case class TryAgainAction(userToken: String, targetAction: String) extends RoomSingleAction
 
   def roomProcess(v: JsValue): WsAction = {
     val action = (v \ "action").asOpt[String]
@@ -56,13 +59,18 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
         val text = (v \ "text").asOpt[String].getOrElse("")
         val index = linesMock.indexWhere(line => line.id == prevId)
         val newLine = Line(id, text)
-        if (index >= 0) {
-          if (index < linesMock.size) {
-            linesMock.insert(index + 1, newLine)
+        if (text.length <= MAX_LINE_LENGTH) {
+          if (index >= 0) {
+            if (index < linesMock.size) {
+              linesMock.insert(index + 1, newLine)
+            } else {
+              linesMock += newLine
+            }
+            InsertAction(userToken, id, prevId, text)
           } else {
-            linesMock += newLine
+            TryAgainAction(userToken, "insert")
+            // FailAction(userToken, "Error")
           }
-          InsertAction(userToken, id, prevId, text)
         } else {
           FailAction(userToken, "Error")
         }
@@ -71,9 +79,13 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
         val id = (v \ "id").asOpt[Long].getOrElse(-1l)
         val text = (v \ "text").asOpt[String].getOrElse("")
         val index = linesMock.indexWhere(line => line.id == id)
-        if (index >= 0) {
-          linesMock(index) = Line(id, text)
-          UpdateAction(userToken, id, text)
+        if (text.length <= MAX_LINE_LENGTH) {
+          if (index >= 0) {
+            linesMock(index) = Line(id, text)
+            UpdateAction(userToken, id, text)
+          } else {
+            FailAction(userToken, "Error")
+          }
         } else {
           FailAction(userToken, "Error")
         }
@@ -134,7 +146,7 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
   }
 
   def roomSingleResponse(action: WsAction): JsValue = action match {
-    case GetAllAction(userToken: String) => Json.obj(
+    case GetAllAction(userToken) => Json.obj(
       "action" -> "get-all",
       "userToken" -> userToken,
       "title" -> titleMock,
@@ -142,6 +154,11 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
         "id" -> l.id,
         "text" -> l.text
       )))
+    )
+    case TryAgainAction(userToken, targetAction) => Json.obj(
+      "action" -> "try-again",
+      "userToken" -> userToken,
+      "targetAction" -> targetAction
     )
   }
 
