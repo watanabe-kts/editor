@@ -15,7 +15,23 @@ body {
   margin: 0;
   border: 0;
 
-  background-color: rgba(desaturate($primary-color, 25%), 0.3);
+  background-color: desaturate($primary-color-dark, 30%);
+}
+
+header {
+  top: 0;
+  position: sticky;
+
+  padding: 0.5rem;
+
+  background-color: #000;
+
+  color: $primary-color-light;
+
+  a {
+    color: $text-color-white;
+    font-weight: bold;
+  }
 }
 
 .main-container {
@@ -24,21 +40,34 @@ body {
 }
 
 #file-name {
+  color: $text-color-white;
   font-weight: bold;
   font-size: 2em;
 }
 
-#editor {
-  width: 80%;
-  height: 80%;
+.flex-container {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
 
-  border: solid 3px $primary-color-dark;
+.editor-container {
+  width: calc(100% - 132px);
+  max-width: 960px;
+}
+
+#editor {
+  width: 100%;
+  min-height: 80%;
+
+  box-sizing: border-box;
+
+  border: solid 3px $primary-color-light;
   border-radius: 5px;
   padding: 1.5rem;
+  margin-bottom: 50px;
 
-  background-color: lighten($primary-color, 40%);
-
-  overflow-y: auto;
+  background-color: lighten($primary-color, 50%);
 
   box-shadow: 2px 2px 2px 1px rgba(0,0,0,0.4);
 }
@@ -66,6 +95,12 @@ input:focus {
   width: 100%;
 }
 
+.line-writer {
+  color: lighten($text-color, 40%);
+  font-size: 0.6em;
+  font-style: italic;
+}
+
 #line-input {
   width: calc(100% - 4em);
 
@@ -83,15 +118,3 @@ input:focus {
   transition: all 0.5s;
 }
 
-header {
-  padding: 0.5rem;
-
-  background-color: $text-color;
-
-  color: $primary-color-light;
-
-  a {
-    color: $text-color-white;
-    font-weight: bold;
-  }
-}

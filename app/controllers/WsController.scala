@@ -1,9 +1,12 @@
 package controllers
 
+import java.time.ZonedDateTime
+
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.stream.scaladsl.{Broadcast, BroadcastHub, Flow, GraphDSL, Keep, Merge, MergeHub, Sink}
 import akka.stream.{FlowShape, KillSwitches, Materializer}
 import javax.inject._
+import models.Account
 import play.api._
 import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
 import play.api.libs.streams.ActorFlow
@@ -28,51 +31,55 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
   val MAX_LINE_LENGTH = 100
 
   var titleMock = "No_Title"
-  case class Line(id: Long, text: String)
+  case class Line(id: Long, text: String, writer: String, date: ZonedDateTime)
   val linesMock = mutable.ListBuffer {
-    Line(0, "")
+    Line(0, "", "", DateUtil.now)
   }
 
   sealed trait WsAction
 
-  case class FailAction(userToken: String, message: String) extends WsAction
+  case class FailAction(session: Option[models.Session], pageToken: Option[String], message: String) extends WsAction
   case class NoneAction() extends WsAction
 
   sealed trait RoomAction extends WsAction
 
   sealed trait RoomBroadcastAction extends RoomAction
-  case class InsertAction(userToken: String, id: Long, prevId: Long, text: String) extends RoomBroadcastAction
-  case class UpdateAction(userToken: String, id: Long, text: String) extends RoomBroadcastAction
-  case class DeleteAction(userToken: String, id: Long) extends RoomBroadcastAction
+  case class InsertAction(session: Option[models.Session], pageToken: Option[String], id: Long, prevId: Long, text: String) extends RoomBroadcastAction
+  case class UpdateAction(session: Option[models.Session], pageToken: Option[String], id: Long, text: String) extends RoomBroadcastAction
+  case class DeleteAction(session: Option[models.Session], pageToken: Option[String], id: Long) extends RoomBroadcastAction
 
   sealed trait RoomSingleAction extends RoomAction
-  case class GetAllAction(userToken: String) extends RoomSingleAction
-  case class TryAgainAction(userToken: String, targetAction: String) extends RoomSingleAction
+  case class GetAllAction(session: Option[models.Session], pageToken: Option[String]) extends RoomSingleAction
+  case class TryAgainAction(session: Option[models.Session], pageToken: Option[String], targetAction: String) extends RoomSingleAction
 
-  def roomProcess(v: JsValue): WsAction = {
+  def roomProcess(json: JsValue): WsAction = {
+    val v = (json \ "received").get
+    val token = (json \ "token").asOpt[String]
+    val session = token.flatMap(Account.getSession)
     val action = (v \ "action").asOpt[String]
-    val userToken = (v \ "userToken").asOpt[String].get // fixme
+    val pageToken = (v \ "pageToken").asOpt[String]
     val res: WsAction = action match {
       case Some("insert") => {
         val id = (v \ "id").asOpt[Long].getOrElse(-1l)
         val prevId = (v \ "prevId").asOpt[Long].getOrElse(-1l)
         val text = (v \ "text").asOpt[String].getOrElse("")
         val index = linesMock.indexWhere(line => line.id == prevId)
-        val newLine = Line(id, text)
         if (text.length <= MAX_LINE_LENGTH) {
+          val writer = session.map(_.account.name).getOrElse("Anonymous")
+          val newLine = Line(id, text, writer, DateUtil.now)
           if (index >= 0) {
             if (index < linesMock.size) {
               linesMock.insert(index + 1, newLine)
             } else {
               linesMock += newLine
             }
-            InsertAction(userToken, id, prevId, text)
+            InsertAction(session, pageToken, id, prevId, text)
           } else {
-            TryAgainAction(userToken, "insert")
-            // FailAction(userToken, "Error")
+            TryAgainAction(session, pageToken, "insert")
+            // FailAction(session, "Error")
           }
         } else {
-          FailAction(userToken, "Error")
+          FailAction(session, pageToken, "Error")
         }
       }
       case Some("update") => {
@@ -81,13 +88,14 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
         val index = linesMock.indexWhere(line => line.id == id)
         if (text.length <= MAX_LINE_LENGTH) {
           if (index >= 0) {
-            linesMock(index) = Line(id, text)
-            UpdateAction(userToken, id, text)
+            val writer = session.map(_.account.name).getOrElse("Anonymous")
+            linesMock(index) = Line(id, text, writer, DateUtil.now)
+            UpdateAction(session, pageToken, id, text)
           } else {
-            FailAction(userToken, "Error")
+            FailAction(session, pageToken, "Error")
           }
         } else {
-          FailAction(userToken, "Error")
+          FailAction(session, pageToken, "Error")
         }
       }
       case Some("delete") => {
@@ -95,22 +103,22 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
         val index = linesMock.indexWhere(line => line.id == id)
         if (index >= 0) {
           linesMock.remove(index)
-          DeleteAction(userToken, id)
+          DeleteAction(session, pageToken, id)
         } else {
-          FailAction(userToken, "Error")
+          FailAction(session, pageToken, "Error")
         }
       }
       case Some("get-all") => {
-        GetAllAction(userToken)
+        GetAllAction(session, pageToken)
       }
       case Some(_) => {
-        FailAction(userToken, "Error")
+        FailAction(session, pageToken, "Error")
       }
       case None => {
         NoneAction()
       }
     }
-    Logger.debug(linesMock.mkString(", "))
+    // Logger.debug(linesMock.mkString(", "))
     res
   }
 
@@ -125,39 +133,50 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
   }
 
   def roomBroadcastResponse(action: WsAction): JsValue = action match {
-    case InsertAction(userToken, id, prevId, text) => Json.obj(
+    case InsertAction(session, pageToken, id, prevId, text) => Json.obj(
       "action" -> "insert",
-      "userToken" -> userToken,
+      "writer" -> session.map(_.account.name),
+      "pageToken" -> pageToken,
       "id" -> id,
       "prevId" -> prevId,
-      "text" -> text
+      "text" -> text,
+      "insertedAt" -> DateUtil.formattedNow
     )
-    case UpdateAction(userToken, id, text) => Json.obj(
+    case UpdateAction(session, pageToken, id, text) => Json.obj(
       "action" -> "update",
-      "userToken" -> userToken,
+      "writer" -> session.map(_.account.name),
+      "pageToken" -> pageToken,
       "id" -> id,
-      "text" -> text
+      "text" -> text,
+      "updatedAt" -> DateUtil.formattedNow
     )
-    case DeleteAction(userToken, id) => Json.obj(
+    case DeleteAction(session, pageToken, id) => Json.obj(
       "action" -> "delete",
-      "userToken" -> userToken,
-      "id" -> id
+      "writer" -> session.map(_.account.name),
+      "pageToken" -> pageToken,
+      "id" -> id,
+      "deletedAt" -> DateUtil.formattedNow
     )
   }
 
   def roomSingleResponse(action: WsAction): JsValue = action match {
-    case GetAllAction(userToken) => Json.obj(
+    case GetAllAction(session, pageToken) => Json.obj(
       "action" -> "get-all",
-      "userToken" -> userToken,
+      "token" -> session.map(_.token),
+      "pageToken" -> pageToken,
       "title" -> titleMock,
       "lines" -> JsArray(linesMock.map(l => Json.obj(
         "id" -> l.id,
-        "text" -> l.text
-      )))
+        "text" -> l.text,
+        "writer" -> l.writer,
+        "date" -> DateUtil.format(l.date)
+      ))),
+      "createdAt" -> DateUtil.formattedNow
     )
-    case TryAgainAction(userToken, targetAction) => Json.obj(
+    case TryAgainAction(session, pageToken, targetAction) => Json.obj(
       "action" -> "try-again",
-      "userToken" -> userToken,
+      "token" -> session.map(_.token),
+      "pageToken" -> pageToken,
       "targetAction" -> targetAction
     )
   }
@@ -178,6 +197,8 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
   def ws: WebSocket = WebSocket.accept[JsValue, JsValue] { request =>
     Logger.debug("ws: connected")
 
+    val token = request.session.get("token")
+
     val inFlow  = ActorFlow.actorRef(out => RequestActor.props(out))
 
     val outFlow = ActorFlow.actorRef(out => ResponseActor.props(out))
@@ -189,7 +210,12 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
       val bcast = b.add(Broadcast[WsAction](2))
       val merge = b.add(Merge[JsValue](2))
 
-      val preProc = b.add(Flow[JsValue].map(roomProcess))
+      val preProc = b.add(Flow[JsValue]
+        .map(json => Json.obj(
+          "received" -> json,
+          "token" -> token
+        ))
+        .map(roomProcess))
       val roomRes = b.add(Flow[WsAction].filter(roomBroadcastFilter).map(roomBroadcastResponse))
 
       val roomBus = b.add(bus)
@@ -223,4 +249,15 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
       case msg: JsValue => out ! msg
     }
   }
+}
+
+object DateUtil {
+  import java.time._
+  import java.time.format.DateTimeFormatter._
+
+  def now = ZonedDateTime.now
+
+  def format(d: ZonedDateTime) = d.format(RFC_1123_DATE_TIME)
+
+  def formattedNow = format(now)
 }

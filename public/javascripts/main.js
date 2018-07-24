@@ -6,12 +6,19 @@ const genRandomId = () => {
     return Math.floor(Math.random() * 0xfffffff)
 }
 
-// stub
-const userToken = `${genRandomId()}`
+let selfName = 'You'
+const pageToken = `${genRandomId()}`
+let userToken = null
+
+const initToken = token => {
+    userToken = token
+}
 
 const lines = [{
     id: 0,
     text: '',
+    writer: null,
+    date: null
 }]
 
 const idToIndex = (id) =>
@@ -23,24 +30,26 @@ const initLines = (newLines) => {
     for (let l of newLines) {
         lines.push({
             id: l.id,
-            text: l.text
+            text: l.text,
+            writer: l.writer,
+            date: l.date
         })
     }
 }
 
-const insertLine = (prevId, id, text) => {
+const insertLine = (prevId, id, text, writer, date) => {
     const prevIndex = idToIndex(prevId)
     lines.splice(prevIndex + 1, 0, {
-        id, text
+        id, text, writer, date
     })
     return id
 }
 
-const updateLine = (id, text) => {
+const updateLine = (id, text, writer, date) => {
     const index = idToIndex(id)
     if (index >= 0 && text !== lines[index].text) {
         lines.splice(index, 1, {
-            id, text
+            id, text, writer, date
         })
         return true
     }
@@ -60,14 +69,14 @@ const deleteLine = (id) => {
 const sendGetAll = () => {
     socket.send(JSON.stringify({
         action: "get-all",
-        userToken
+        pageToken, userToken
     }))
 }
 
 const sendInsertLine = (prevId, id, text) => {
     socket.send(JSON.stringify({
         action: 'insert',
-        userToken,
+        pageToken, userToken,
         prevId, id, text
     }))
 }
@@ -75,7 +84,7 @@ const sendInsertLine = (prevId, id, text) => {
 const sendUpdateLine = (id, text) => {
     socket.send(JSON.stringify({
         action: 'update',
-        userToken,
+        pageToken, userToken,
         id, text
     }))
 }
@@ -83,7 +92,7 @@ const sendUpdateLine = (id, text) => {
 const sendDeleteLine = (id) => {
     socket.send(JSON.stringify({
         action: 'delete',
-        userToken,
+        pageToken, userToken,
         id
     }))
 }
@@ -91,7 +100,7 @@ const sendDeleteLine = (id) => {
 const sendKeepAlive = () => {
     socket.send(JSON.stringify({
         action: 'keep-alive',
-        userToken
+        pageToken, userToken
     }))
 }
 
@@ -116,27 +125,28 @@ socket.addEventListener('message', e => {
 
     const data = JSON.parse(e.data)
 
-    if (data.userToken === undefined) return
+    if (data.pageToken === undefined) return
 
     switch (data.action) {
         case 'get-all':
+            initToken(data.token)
             initLines(data.lines)
             break
     }
 
-    if (data.userToken === userToken) return
+    if (data.pageToken === pageToken) return
 
     switch (data.action) {
         case 'insert':
-            insertLine(data.prevId, data.id, data.text)
+            insertLine(data.prevId, data.id, data.text, data.writer, data.insertedAt)
             break
 
         case 'update':
-            updateLine(data.id, data.text)
+            updateLine(data.id, data.text, data.writer, data.updatedAt)
             break
 
         case 'delete':
-            deleteLine(data.id)
+            deleteLine(data.id, data.writer, data.deletedAt)
             break
 
         default:
@@ -173,7 +183,7 @@ const app = new Vue({
             if (input !== null) {
                 const id = parseInt(input.dataset.id)
                 const text = input.value
-                const updated = updateLine(id, text)
+                const updated = updateLine(id, text, selfName)
                 if (updated) {
                     sendUpdateLine(id, text)
                 }
@@ -182,19 +192,22 @@ const app = new Vue({
         },
 
         enterLine(e) {
+            const cursor = e.target.selectionStart
             const id = parseInt(e.target.dataset.id)
             const text = e.target.value
-            updateLine(id, text)
-            sendUpdateLine(id, text)
+            const textCur = text.slice(0, cursor)
+            const textNext = text.slice(cursor)
+            updateLine(id, textCur, selfName)
+            sendUpdateLine(id, textCur)
             const newId = genRandomId()
-            this.editingId = insertLine(id, newId, '')
-            sendInsertLine(id, newId, '')
+            this.editingId = insertLine(id, newId, textNext, selfName)
+            sendInsertLine(id, newId, textNext)
         },
 
         upLine(e) {
             const id = parseInt(e.target.dataset.id)
             const text = e.target.value
-            const updated = updateLine(id, text)
+            const updated = updateLine(id, text, selfName)
             if (updated) {
                 sendUpdateLine(id, text)
             }
@@ -208,7 +221,7 @@ const app = new Vue({
         downLine(e) {
             const id = parseInt(e.target.dataset.id)
             const text = e.target.value
-            const updated = updateLine(id, text)
+            const updated = updateLine(id, text, selfName)
             if (updated) {
                 sendUpdateLine(id, text)
             }
@@ -227,7 +240,7 @@ const app = new Vue({
                 const prevLine = lines[index - 1]
                 deleteLine(id)
                 sendDeleteLine(id)
-                updateLine(prevLine.id, prevLine.text + text)
+                updateLine(prevLine.id, prevLine.text + text, selfName)
                 sendUpdateLine(prevLine.id, prevLine.text + text)
                 this.editingId = prevLine.id
             }
