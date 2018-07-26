@@ -1,3 +1,8 @@
+$header-color: #303838;
+$bg-color: #dadede;
+$editor-color: #fefefe;
+$chat-color: #526060;
+
 $primary-color: #6ec2b1;
 $secondly-color: #ff545e;
 
@@ -7,6 +12,14 @@ $primary-color-dark: darken($primary-color, 20%);
 $text-color: #233332;
 $text-color-white: #fff;
 
+* {
+  box-sizing: border-box;
+}
+
+a {
+  text-decoration: none;
+}
+
 html {
   color: $text-color;
 }
@@ -15,64 +28,95 @@ body {
   margin: 0;
   border: 0;
 
-  background-color: desaturate($primary-color-dark, 30%);
+  background-color: $bg-color;
 }
 
 header {
   top: 0;
   position: sticky;
+  display: flex;
+
+  height: 50px;
 
   padding: 0.5rem;
 
-  background-color: #000;
+  z-index: 1000;
 
+  background-color: $header-color;
   color: $primary-color-light;
 
   a {
+    align-content: center;
     color: $text-color-white;
     font-weight: bold;
   }
 }
 
-.main-container {
-  margin: 1rem;
-  height: calc(100vh - 10rem);
+#app {
+  width: 100%;
+  height: 100%;
 }
 
 #file-name {
-  color: $text-color-white;
+  color: $header-color;
   font-weight: bold;
   font-size: 2em;
 }
 
-.flex-container {
+.shadow {
+  box-shadow: 0 2px 2px 1px rgba(0,0,0,0.25);
+}
+
+.shadow-left {
+  box-shadow: -1px 2px 2px 1px rgba(0,0,0,0.25);
+}
+
+.text-white {
+  color: #fefefe;
+}
+
+
+.flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.flex-row {
   display: flex;
   justify-content: center;
   width: 100%;
 }
 
+.main-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+
+
 .editor-container {
   width: calc(100% - 132px);
   max-width: 960px;
+
+  margin: 0 40px;
 }
 
 #editor {
   width: 100%;
-  min-height: 80%;
+  min-height: 640px;
 
-  box-sizing: border-box;
-
-  border: solid 4px $primary-color-light;
+  border: solid 4px $primary-color;
   border-radius: 5px;
   padding: 38px 45px 38px;
   margin-bottom: 50px;
 
-  background-color: lighten($primary-color, 50%);
-
-  box-shadow: 2px 2px 2px 1px rgba(0,0,0,0.4);
+  background-color: $editor-color;
 }
 
 .line {
+  position: relative;
   line-height: 1.7em;
 }
 
@@ -91,6 +135,24 @@ input:focus {
   color: rgba(0,0,0,0.5);
 }
 
+.line-tip {
+  position: absolute;
+  right: 100%;
+
+  padding: 0.2em 0.8em;
+
+  border-radius: 3px;
+
+  background-color: lighten($header-color, 20%);
+  color: #fefefe;
+
+  font-size: 0.8em;
+
+  div {
+    padding: 0.1em;
+  }
+}
+
 .line-content {
   width: 100%;
 }
@@ -103,9 +165,9 @@ input:focus {
 
 #line-input {
   width: calc(100% - 4em);
+  height: 100%;
 
-  border: solid $primary-color-dark;
-  border-width: 0 0 3px;
+  border: none;
   font-size: 1em;
   background-color: rgba($primary-color, 0.3);
 }
@@ -118,3 +180,100 @@ input:focus {
   transition: all 0.5s;
 }
 
+
+
+.side-container {
+  position: sticky;
+  top: 50px;
+
+  width: 320px;
+  height: calc(100vh - 50px);
+
+  z-index: 1100;
+
+  background-color: $chat-color;
+}
+
+.chat-log-container {
+  height: calc(100vh - 110px);
+  overflow-y: scroll;
+  padding: 10px 25px 0;
+}
+
+.input-chat-post-container {
+  position: absolute;
+  bottom: 0;
+
+  padding: 1px 10px 20px;
+
+  width: 100%;
+
+  z-index: 1000;
+}
+
+#input-chat-post {
+  width: 100%;
+
+  border: solid 3px $primary-color;
+  border-radius: 5px;
+
+  padding: 0.8em 12px;
+
+  background-color: #fefefe;
+  font-size: 1em;
+  color: $text-color;
+}
+
+.chat-item {
+  padding-bottom: 0.8em;
+  color: #fefefe;
+}
+
+.chat-writer {
+  font-weight: bold;
+}
+
+.chat-date {
+  font-size: 0.7em;
+  color: #aaa;
+
+}
+
+.status-bar {
+  bottom: 0;
+  position: fixed;
+  width: 100%;
+  height: 30px;
+  background-color: rgba(0,0,0,0.85);
+  color: #fff;
+}
+
+
+
+.doc-list-container {
+  width: 100%;
+  margin: 0 40px;
+}
+
+.doc-list {
+  display: flex;
+  align-content: flex-start;
+
+  width: 100%;
+}
+
+.doc-item {
+  width: 160px;
+  height: 160px;
+
+  padding: 20px;
+
+  border: solid 4px $primary-color;
+  border-radius: 4px;
+
+  background-color: #fefefe;
+
+  h2 {
+    color: $header-color;
+  }
+}

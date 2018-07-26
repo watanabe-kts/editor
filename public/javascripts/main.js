@@ -21,6 +21,11 @@ const lines = [{
     date: null
 }]
 
+const typing = {}
+const typingIds = {}
+
+const chats = []
+
 const idToIndex = (id) =>
     lines.findIndex(line => id === line.id)
 
@@ -38,11 +43,13 @@ const initLines = (newLines) => {
 }
 
 const insertLine = (prevId, id, text, writer, date) => {
-    const prevIndex = idToIndex(prevId)
-    lines.splice(prevIndex + 1, 0, {
-        id, text, writer, date
-    })
-    return id
+    if (lines.length < 2000) {
+        const prevIndex = idToIndex(prevId)
+        lines.splice(prevIndex + 1, 0, {
+            id, text, writer, date
+        })
+        return id
+    }
 }
 
 const updateLine = (id, text, writer, date) => {
@@ -63,6 +70,30 @@ const deleteLine = (id) => {
         return true
     }
     return false
+}
+
+const pushChat = (message, writer, date) => {
+    chats.push({
+        message, writer, date
+    })
+}
+
+const initChat = (newChats) => {
+    console.log(newChats)
+    for (let c of newChats) {
+        pushChat(c.message, c.writer, c.date)
+    }
+}
+
+const setTyping = (id, writer) => {
+    console.log(id, writer)
+    if (typing[writer] !== undefined) {
+        typingIds[typing[writer]] = null
+    }
+    if (id !== null) {
+        typing[writer] = id
+        typingIds[id] = writer
+    }
 }
 
 
@@ -89,6 +120,7 @@ const sendUpdateLine = (id, text) => {
     }))
 }
 
+
 const sendDeleteLine = (id) => {
     socket.send(JSON.stringify({
         action: 'delete',
@@ -96,6 +128,24 @@ const sendDeleteLine = (id) => {
         id
     }))
 }
+
+const sendTyping = (id) => {
+    socket.send(JSON.stringify({
+        action: 'typing',
+        pageToken, userToken,
+        id
+    }))
+}
+
+
+const sendChatPost = (message) => {
+    socket.send(JSON.stringify({
+        action: 'chat-post',
+        pageToken, userToken,
+        message
+    }))
+}
+
 
 const sendKeepAlive = () => {
     socket.send(JSON.stringify({
@@ -105,6 +155,7 @@ const sendKeepAlive = () => {
 }
 
 let keepAliveID
+
 
 socket.addEventListener('open', e => {
     console.log('Socket opened', e)
@@ -125,15 +176,19 @@ socket.addEventListener('message', e => {
 
     const data = JSON.parse(e.data)
 
-    if (data.pageToken === undefined) return
-
     switch (data.action) {
         case 'get-all':
             initToken(data.token)
             initLines(data.lines)
+            initChat(data.chats)
+            break
+
+        case 'chat-post':
+            pushChat(data.message, data.writer, data.postedAt)
             break
     }
 
+    if (data.pageToken === undefined) return
     if (data.pageToken === pageToken) return
 
     switch (data.action) {
@@ -149,17 +204,40 @@ socket.addEventListener('message', e => {
             deleteLine(data.id, data.writer, data.deletedAt)
             break
 
+        case 'typing':
+            setTyping(data.id, data.writer)
+            break
+
         default:
             console.log(`Unknown Action: ${data.action}`)
     }
 })
 
 
+
 const app = new Vue({
     el: '#app',
+
+    components: {
+        'parse-md': {
+            /*================= WIP
+            render(h) {
+                const r = (h, s) => {
+                    s.match(/(.*?)()()/)
+                }
+
+                return r(h, this.$slots.default)
+            }
+            */
+        }
+    },
+
     data: {
         lines,
+        chats,
         editingId: -1,
+        typingId: null,
+        tipIndex: null
     },
 
     computed: {
@@ -189,6 +267,7 @@ const app = new Vue({
                 }
             }
             this.editingId = parseInt(e.currentTarget.dataset.id)
+            this.changeTyping(null)
         },
 
         enterLine(e) {
@@ -201,6 +280,7 @@ const app = new Vue({
             sendUpdateLine(id, textCur)
             const newId = genRandomId()
             this.editingId = insertLine(id, newId, textNext, selfName)
+            this.changeTyping(null)
             sendInsertLine(id, newId, textNext)
         },
 
@@ -215,6 +295,7 @@ const app = new Vue({
             const index = idToIndex(id)
             if (index > 0) {
                 this.editingId = lines[index - 1].id
+                this.changeTyping(null)
             }
         },
 
@@ -229,6 +310,7 @@ const app = new Vue({
             const index = idToIndex(id)
             if (index < lines.length - 1) {
                 this.editingId = lines[index + 1].id
+                this.changeTyping(null)
             }
         },
 
@@ -243,6 +325,35 @@ const app = new Vue({
                 updateLine(prevLine.id, prevLine.text + text, selfName)
                 sendUpdateLine(prevLine.id, prevLine.text + text)
                 this.editingId = prevLine.id
+                this.changeTyping(null)
+            }
+        },
+
+        changeTyping(id) {
+            const prevTypingId = this.typingId
+            this.typingId = id
+            if (prevTypingId !== id) {
+                sendTyping(id)
+            }
+        },
+
+        inputLine(e) {
+            this.changeTyping(e.target.dataset.id)
+        },
+
+        show(q) {
+            document.querySelector(q).style.display = null
+        },
+
+        hide(q) {
+            document.querySelector(q).style.display = 'none'
+        },
+
+        chatEnter(e) {
+            const message = e.target.value
+            if (message.length > 0) {
+                sendChatPost(message)
+                e.target.value = ''
             }
         }
     },

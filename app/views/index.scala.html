@@ -1,38 +1,17 @@
 @(name: Option[String])
 
-@main("Welcome to Play") {
-  <header>
-    @if(name.nonEmpty) {
-      @name
-      <a href="/logout">Log out</a>
-    } else {
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Sign in</title>
+  </head>
+  <body>
+    <div>
       <a href="/login">Log in</a>
-      |
-      <a href="/signup">Sign up</a>
-    }
-  </header>
-  <div id="app">
-    <div class="main-container">
-      <div class="flex-container">
-        <div class="editor-container">
-          <h1 id="file-name">No_Title</h1>
-          <div id="editor" class="editor">
-            <div v-for="(line, index) in editorLines" class="line" :data-id="line.id" @@click="clickLine">
-              <span class="line-index">{{index + 1}}</span>
-              <!--<transition name="transition-line-input">-->
-                <span v-if="line.editing" class="line-content">
-                  <input type="text" id="line-input" :value="line.text" :data-id="line.id"
-                  @@keydown.enter="enterLine" @@keydown.up="upLine" @@keydown.down="downLine" @@keydown.delete.capture="deleteLine">
-                </span>
-              <!--</transition>-->
-              <span v-else class="line-content">
-                {{line.text}}
-                <span class="line-writer" v-if="line.writer !== null">({{line.writer}} - {{line.date}})</span>
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
-  </div>
-}
+    <div>
+      <a href="/signup">Sign up</a>
+    </div>
+  </body>
+</html>

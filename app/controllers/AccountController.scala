@@ -41,7 +41,8 @@ class AccountController @Inject()(implicit db: Database, messagesAction: Message
   )
 
   def loginPage() = messagesAction { implicit request =>
-    Ok(views.html.login(loginForm, ""))
+    val msg = request.flash.get("success").getOrElse("")
+    Ok(views.html.login(loginForm, msg))
   }
 
   def loginPost() = messagesAction { implicit request =>
@@ -56,7 +57,7 @@ class AccountController @Inject()(implicit db: Database, messagesAction: Message
           msg => BadRequest(views.html.login(loginForm, msg)),
           _ => {
             val session = Account.createSession(account)
-            Redirect(routes.HomeController.index()).flashing("success" -> "Login succeed!")
+            Redirect(routes.HomeController.docList()).flashing("success" -> "Logging in succeeded!")
               .withSession("token" -> session.token)
           }
         )
@@ -89,7 +90,7 @@ class AccountController @Inject()(implicit db: Database, messagesAction: Message
         val res = Account.create(newAccount)
         res.fold(
           msg => BadRequest(views.html.signup(signupForm, msg)),
-          _ => Redirect(routes.AccountController.loginPage()).flashing("success" -> "Sign up succeed!")
+          _ => Redirect(routes.AccountController.loginPage()).flashing("success" -> "Signing up succeeded!")
         )
       }
     )

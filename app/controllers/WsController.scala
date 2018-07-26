@@ -29,12 +29,16 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
   import GraphDSL.Implicits._
 
   val MAX_LINE_LENGTH = 100
+  val MAX_LINE_COUNT = 2000
 
   var titleMock = "No_Title"
   case class Line(id: Long, text: String, writer: String, date: ZonedDateTime)
   val linesMock = mutable.ListBuffer {
     Line(0, "", "", DateUtil.now)
   }
+
+  case class ChatMessage(message: String, writer: String, date: ZonedDateTime)
+  var chatMock = mutable.ListBuffer.empty[ChatMessage]
 
   sealed trait WsAction
 
@@ -47,6 +51,8 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
   case class InsertAction(session: Option[models.Session], pageToken: Option[String], id: Long, prevId: Long, text: String) extends RoomBroadcastAction
   case class UpdateAction(session: Option[models.Session], pageToken: Option[String], id: Long, text: String) extends RoomBroadcastAction
   case class DeleteAction(session: Option[models.Session], pageToken: Option[String], id: Long) extends RoomBroadcastAction
+  case class ChatPostAction(session: Option[models.Session], message: String) extends RoomBroadcastAction
+  case class TypingAction(session: Option[models.Session], pageToken: Option[String], id: Option[Long]) extends RoomBroadcastAction
 
   sealed trait RoomSingleAction extends RoomAction
   case class GetAllAction(session: Option[models.Session], pageToken: Option[String]) extends RoomSingleAction
@@ -67,7 +73,7 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
         if (text.length <= MAX_LINE_LENGTH) {
           val writer = session.map(_.account.name).getOrElse("Anonymous")
           val newLine = Line(id, text, writer, DateUtil.now)
-          if (index >= 0) {
+          if (index >= 0 && linesMock.size < MAX_LINE_COUNT) {
             if (index < linesMock.size) {
               linesMock.insert(index + 1, newLine)
             } else {
@@ -106,6 +112,22 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
           DeleteAction(session, pageToken, id)
         } else {
           FailAction(session, pageToken, "Error")
+        }
+      }
+      case Some("typing") => {
+        val id = (v \ "id").asOpt[Long]
+        TypingAction(session, pageToken, id)
+      }
+      case Some("chat-post") => {
+        val message = (v \ "message").asOpt[String].getOrElse("")
+        if (message.length <= 200) {
+          chatMock += ChatMessage(message, session.map(_.account.name).getOrElse("Anonymous"), DateUtil.now)
+          if (chatMock.length > 2000) {
+            chatMock = chatMock.drop(1000)
+          }
+          ChatPostAction(session, message)
+        } else {
+          FailAction(session, None, "Error")
         }
       }
       case Some("get-all") => {
@@ -157,6 +179,18 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
       "id" -> id,
       "deletedAt" -> DateUtil.formattedNow
     )
+    case TypingAction(session, pageToken, id) => Json.obj(
+      "action" -> "typing",
+      "writer" -> session.map(_.account.name),
+      "pageToken" -> pageToken,
+      "id" -> id,
+    )
+    case ChatPostAction(session, message) => Json.obj(
+      "action" -> "chat-post",
+      "writer" -> session.map(_.account.name),
+      "message" -> message,
+      "postedAt" -> DateUtil.formattedNow
+    )
   }
 
   def roomSingleResponse(action: WsAction): JsValue = action match {
@@ -170,6 +204,11 @@ class WsController @Inject()(implicit system: ActorSystem, materializer: Materia
         "text" -> l.text,
         "writer" -> l.writer,
         "date" -> DateUtil.format(l.date)
+      ))),
+      "chats" -> JsArray(chatMock.map(c => Json.obj(
+        "writer" -> c.writer,
+        "message" -> c.message,
+        "date" -> DateUtil.format(c.date)
       ))),
       "createdAt" -> DateUtil.formattedNow
     )

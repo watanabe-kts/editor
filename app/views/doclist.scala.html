@@ -1,0 +1,59 @@
+@(name: Option[String])
+
+@main("Editor") {
+    <header class="shadow">
+    @if(name.nonEmpty) {
+        @name
+        <a href="/logout">Log out</a>
+    } else {
+        <a href="/login">Log in</a>
+        |
+        <a href="/signup">Sign up</a>
+    }
+    </header>
+    <div id="app">
+        <div class="flex-row">
+            <div class="main-container">
+                <div class="doc-list-container">
+                    <div>
+                        <h1 id="file-name">Project</h1>
+                    </div>
+                    <div class="doc-list">
+                        <a href="/doc/1">
+                            <div class="doc-item shadow">
+                                <h2>No_Title</h2>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="side-container shadow-left">
+                <div class="chat-log-container">
+                    <h2 class="text-white">Chat Room</h2>
+                    <div v-for="chat in chats" class="chat-item">
+                        <div>
+                            <span class="chat-writer">
+                                {{chat.writer}}
+                            </span>
+                            <span class="chat-date">
+                                {{chat.date}}
+                            </span>
+                        </div>
+                        <div class="chat-message">
+                            {{chat.message}}
+                        </div>
+                    </div>
+                </div>
+                <div class="input-chat-post-container">
+                    <input type="text" id="input-chat-post" class="shadow" placeholder="Message" @@keydown.enter="chatEnter">
+                </div>
+            </div>
+        </div>
+    </div>
+        <!--
+    <div class="status-bar">
+      Status Bar!
+    </div>
+    -->
+    </div>
+}
